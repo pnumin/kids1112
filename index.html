@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>세솔반 동화책 랜덤 배정기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Jua (유치원 분위기에 어울리는 둥글고 귀여운 한글 폰트) 및 Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti (축하 꽃가루 효과) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FFFDF7;
+            background-image: radial-gradient(#FDE68A 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+        .font-jua {
+            font-family: 'Jua', sans-serif;
+        }
+        /* 책 표지 입체감 효과 */
+        .book-cover {
+            box-shadow: -6px 8px 16px rgba(0, 0, 0, 0.15), inset 4px 0 8px rgba(255, 255, 255, 0.4), inset -2px 0 4px rgba(0, 0, 0, 0.1);
+            border-left: 10px solid rgba(0, 0, 0, 0.12);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .book-cover:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+        /* 카드 플립/등장 애니메이션 */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.85) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop-in {
+            animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        /* 모달 등장 애니메이션 */
+        @keyframes modalShow {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-modal {
+            animation: modalShow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-amber-400 text-white shadow-md rounded-b-3xl px-4 py-6 mb-6 relative overflow-hidden">
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <span class="inline-block bg-white/25 text-amber-950 font-bold text-xs sm:text-sm px-3 py-1 rounded-full mb-2">
+                🌱 즐거운 독서 시간
+            </span>
+            <h1 class="font-jua text-3xl sm:text-4xl md:text-5xl text-amber-950 tracking-wide drop-shadow-sm">
+                세솔반 동화책 랜덤 배정기
+            </h1>
+            <p class="text-amber-900 text-sm sm:text-base mt-2 font-medium">
+                10명의 친구들에게 건강·안전 동화책 10권을 골고루 나누어 주어요!
+            </p>
+        </div>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <main class="max-w-4xl w-full mx-auto px-4 flex-grow">
+        
+        <!-- 알림 메시지 배너 (alert 대체) -->
+        <div id="toastMessage" class="hidden mb-4 p-4 rounded-2xl bg-rose-100 border border-rose-300 text-rose-800 text-center font-medium shadow-sm transition-all">
+        </div>
+
+        <!-- 1단계: 학생 이름 입력 영역 -->
+        <section id="inputSection" class="bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-amber-100 mb-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+                <div>
+                    <h2 class="font-jua text-2xl text-slate-800 flex items-center gap-2">
+                        <span>✏️</span> 세솔반 친구들 이름 입력 (10명)
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">이름을 직접 입력하거나 예시 이름으로 채워보세요.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="fillSampleNames()" class="px-3.5 py-2 text-xs sm:text-sm font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl transition cursor-pointer">
+                        예시 이름 채우기
+                    </button>
+                    <button type="button" onclick="clearNames()" class="px-3.5 py-2 text-xs sm:text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer">
+                        모두 지우기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 10명 이름 입력 폼 그리드 -->
+            <div id="studentInputsGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-8">
+                <!-- JS로 10개의 input 박스가 생성됩니다 -->
+            </div>
+
+            <!-- 배정 시작 버튼 -->
+            <div class="text-center">
+                <button type="button" onclick="assignBooks()" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-950 font-jua text-xl sm:text-2xl rounded-2xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition cursor-pointer flex items-center justify-center gap-2 mx-auto">
+                    <span>🎲</span> 동화책 랜덤 배정하기!
+                </button>
+            </div>
+        </section>
+
+        <!-- 2단계: 배정 결과 영역 (초기에는 숨김) -->
+        <section id="resultSection" class="hidden bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-emerald-200 mb-8 animate-pop-in">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-4 border-b border-slate-100 gap-4">
+                <div>
+                    <span class="inline-block bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-lg mb-1">배정 완료!</span>
+                    <h2 class="font-jua text-2xl sm:text-3xl text-slate-800">
+                        친구 이름을 눌러 책을 확인하세요 👆
+                    </h2>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="revealAllBooks()" id="revealAllBtn" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer">
+                        👀 모든 책 한눈에 보기
+                    </button>
+                    <button type="button" onclick="assignBooks()" class="px-4 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm rounded-xl transition cursor-pointer">
+                        🔄 다시 섞기
+                    </button>
+                    <button type="button" onclick="resetToInput()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer">
+                        ✏️ 이름 수정
+                    </button>
+                </div>
+            </div>
+
+            <!-- 학생 카드 그리드 -->
+            <div id="studentCardsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                <!-- JS로 배정된 학생 카드가 생성됩니다 -->
+            </div>
+        </section>
+
+        <!-- 전체 동화책 미리보기 섹션 (참고용) -->
+        <section class="bg-white/80 rounded-3xl p-6 border border-amber-100 mb-8">
+            <details class="group">
+                <summary class="font-jua text-lg text-slate-700 cursor-pointer list-none flex items-center justify-between">
+                    <span class="flex items-center gap-2">📚 세솔반 건강·안전 동화책 10권 목록 보기</span>
+                    <span class="text-sm font-sans text-amber-600 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div id="bookCatalogGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-4 border-t border-amber-100">
+                    <!-- JS로 10권의 책 목록이 표시됩니다 -->
+                </div>
+            </details>
+        </section>
+
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="text-center py-6 text-slate-400 text-xs sm:text-sm">
+        세솔반 어린이들의 즐거운 책 읽기 시간을 응원합니다 💛
+    </footer>
+
+    <!-- 동화책 상세 확인 모달 (학생 이름 클릭 시 표시) -->
+    <div id="bookModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closeModalOnBackdrop(event)">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative animate-modal text-center" onclick="event.stopPropagation()">
+            <!-- 닫기 버튼 -->
+            <button type="button" onclick="closeModal()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold transition cursor-pointer">
+                ✕
+            </button>
+
+            <!-- 학생 이름 뱃지 -->
+            <div class="mb-4">
+                <span id="modalStudentName" class="inline-block bg-amber-100 text-amber-950 font-jua text-2xl px-5 py-1.5 rounded-full border-2 border-amber-300 shadow-sm">
+                    김민준 어린이
+                </span>
+                <p class="text-slate-500 text-sm mt-2">에게 배정된 오늘의 동화책은?</p>
+            </div>
+
+            <!-- 책 표지 일러스트 카드 (첨부 이미지 기반 스타일링) -->
+            <div id="modalBookCover" class="book-cover w-48 h-64 mx-auto rounded-r-2xl rounded-l-sm p-4 flex flex-col justify-between items-center text-center my-6 relative select-none">
+                <div class="w-full">
+                    <span class="inline-block bg-white/70 text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-700 mb-2">
+                        건강·안전 그림책
+                    </span>
+                    <h3 id="modalBookTitle" class="font-jua text-2xl leading-snug break-keep drop-shadow-sm">
+                        책 제목
+                    </h3>
+                </div>
+                
+                <!-- 책 내용에 맞는 귀여운 그래픽 아이콘 영역 -->
+                <div id="modalBookIcon" class="text-6xl my-2 filter drop-shadow-md transform transition hover:scale-110">
+                    📖
+                </div>
+
+                <div class="w-full flex justify-between items-end text-[10px] font-bold opacity-75">
+                    <span class="bg-white/60 px-1.5 py-0.5 rounded">세솔반 도서</span>
+                    <span>★ ★ ★</span>
+                </div>
+            </div>
+
+            <!-- 책 설명 -->
+            <p id="modalBookDesc" class="text-slate-600 text-sm sm:text-base bg-slate-50 p-3.5 rounded-2xl mb-6 leading-relaxed break-keep">
+                책에 대한 간단한 설명이 여기에 표시됩니다.
+            </p>
+
+            <!-- 확인 버튼 -->
+            <button type="button" onclick="closeModal()" class="w-full py-3.5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-jua text-xl rounded-2xl shadow transition cursor-pointer">
+                확인했어요! 👍
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 첨부된 이미지 속 10권의 동화책 데이터 (표지 색상, 제목, 테마 아이콘, 설명)
+        const BOOKS_DATA = [
+            {
+                id: 1,
+                title: "허리를 쭈욱 펴고",
+                bgColor: "#ECE675", // 노란 연두색 표지
+                textColor: "#4A4311",
+                icon: "📏🦒",
+                desc: "바른 자세로 앉고 서면 키도 쑥쑥 크고 허리도 튼튼해져요!"
+            },
+            {
+                id: 2,
+                title: "코가 훌쩍",
+                bgColor: "#89C3EB", // 하늘색 표지
+                textColor: "#143A52",
+                icon: "🤧🧣",
+                desc: "감기에 걸려 콧물이 훌쩍훌쩍 날 때 어떻게 해야 할까요?"
+            },
+            {
+                id: 3,
+                title: "세균이 뭐예요?",
+                bgColor: "#D1C5E3", // 연보라색 표지
+                textColor: "#35264A",
+                icon: "🧼🦠",
+                desc: "우리 손에 숨어 있는 보이지 않는 세균을 비누로 깨끗이 씻어내요!"
+            },
+            {
+                id: 4,
+                title: "열이 펄펄",
+                bgColor: "#F3D96B", // 개나리 노란색 표지
+                textColor: "#4D3B09",
+                icon: "🤒🌡️",
+                desc: "몸이 뜨겁고 열이 펄펄 날 때 우리 몸을 돌보는 방법을 알아보아요."
+            },
+            {
+                id: 5,
+                title: "배가 아파요",
+                bgColor: "#B7D5DF", // 차분한 하늘회색 표지
+                textColor: "#1E3F4B",
+                icon: "🚽😣",
+                desc: "음식을 너무 많이 먹거나 차가운 것을 먹어 배가 아플 때의 이야기예요."
+            },
+            {
+                id: 6,
+                title: "몸이 간지러워요",
+                bgColor: "#DCE675", // 라임 연두색 표지
+                textColor: "#3D440E",
+                icon: "🧴🐝",
+                desc: "피부가 간질간질할 때 긁지 않고 건강하게 관리하는 법을 배워요."
+            },
+            {
+                id: 7,
+                title: "살은 왜 찌나요?",
+                bgColor: "#F2B8D3", // 분홍색 표지
+                textColor: "#541B36",
+                icon: "🍔🥦",
+                desc: "골고루 먹고 신나게 뛰어놀며 튼튼한 몸을 만드는 건강한 습관!"
+            },
+            {
+                id: 8,
+                title: "오줌싸개 아니야",
+                bgColor: "#A5C656", // 초록색 표지
+                textColor: "#283A0B",
+                icon: "💧👖",
+                desc: "실수해도 괜찮아요! 화장실에 제때 가는 멋진 어린이가 되어보아요."
+            },
+            {
+                id: 9,
+                title: "응급처치를 배워요",
+                bgColor: "#F4E3DC", // 연살구색 표지
+                textColor: "#4F2E21",
+                icon: "🩹🚑",
+                desc: "넘어지거나 다쳤을 때 당황하지 않고 대처하는 응급처치 약속!"
+            },
+            {
+                id: 10,
+                title: "쿵! 뼈를 다쳤어요",
+                bgColor: "#CBE0D9", // 민트 회색 표지
+                textColor: "#1B4236",
+                icon: "⛑️🦴",
+                desc: "안전모와 보호대를 착용하고 조심조심 안전하게 놀이해요!"
+            }
+        ];
+
+        // 예시 학생 이름 10명
+        const SAMPLE_NAMES = [
+            "김민준", "이서연", "박도윤", "최지우", "정하준",
+            "강서윤", "조시우", "윤지아", "장예준", "임하윤"
+        ];
+
+        // 배정 결과를 저장하는 배열
+        let assignments = [];
+        let isAllRevealed = false;
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            renderStudentInputs();
+            renderBookCatalog();
+        });
+
+        // 1. 학생 10명 이름 입력칸 생성
+        function renderStudentInputs() {
+            const grid = document.getElementById('studentInputsGrid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < 10; i++) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative';
+                wrapper.innerHTML = `
+                    <label for="student_${i}" class="block text-xs font-bold text-amber-800 mb-1 ml-1">
+                        ${i + 1}번 친구
+                    </label>
+                    <input 
+                        type="text" 
+                        id="student_${i}" 
+                        maxlength="10"
+                        placeholder="이름 입력"
+                        value="${SAMPLE_NAMES[i]}"
+                        class="w-full px-3.5 py-2.5 rounded-xl border-2 border-amber-200 focus:border-amber-400 focus:outline-none bg-amber-50/40 text-slate-800 font-bold text-center placeholder:font-normal placeholder:text-slate-300 transition"
+                    >
+                `;
+                grid.appendChild(wrapper);
+            }
+        }
+
+        // 하단 도서 목록 미리보기 생성
+        function renderBookCatalog() {
+            const catalogGrid = document.getElementById('bookCatalogGrid');
+            catalogGrid.innerHTML = BOOKS_DATA.map(book => `
+                <div class="rounded-xl p-3 text-center shadow-sm border border-black/5 flex flex-col items-center justify-between" style="background-color: ${book.bgColor}; color: ${book.textColor};">
+                    <span class="text-2xl mb-1">${book.icon}</span>
+                    <span class="font-jua text-sm leading-tight break-keep">${book.title}</span>
+                </div>
+            `).join('');
+        }
+
+        // 예시 이름 채우기 버튼
+        function fillSampleNames() {
+            for (let i = 0; i < 10; i++) {
+                const input = document.getElementById(`student_${i}`);
+                if (input) input.value = SAMPLE_NAMES[i];
+            }
+            hideToast();
+        }
+
+        // 모두 지우기 버튼
+        function clearNames() {
+            for (let i = 0; i < 10; i++) {
+                const input = document.getElementById(`student_${i}`);
+                if (input) input.value = '';
+            }
+            document.getElementById('student_0').focus();
+            hideToast();
+        }
+
+        // 안내 토스트 메시지 표시 (alert 대체)
+        function showToast(msg) {
+            const toast = document.getElementById('toastMessage');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
+        function hideToast() {
+            document.getElementById('toastMessage').classList.add('hidden');
+        }
+
+        // 피셔-예이츠(Fisher-Yates) 셔플 알고리즘으로 완벽하게 무작위 섞기
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // 2. 랜덤 배정 실행 함수
+        function assignBooks() {
+            const names = [];
+            for (let i = 0; i < 10; i++) {
+                const val = document.getElementById(`student_${i}`).value.trim();
+                if (!val) {
+                    showToast(`앗! ${i + 1}번 친구의 이름이 비어 있어요. 10명의 이름을 모두 입력해주세요!`);
+                    document.getElementById(`student_${i}`).focus();
+                    return;
+                }
+                names.push(val);
+            }
+
+            hideToast();
+
+            // 10권의 책을 중복 없이 랜덤으로 섞음
+            const shuffledBooks = shuffleArray(BOOKS_DATA);
+
+            // 학생과 책 매칭
+            assignments = names.map((name, index) => ({
+                studentName: name,
+                book: shuffledBooks[index],
+                revealed: false // 처음에는 클릭해서 확인하도록 숨김 상태
+            }));
+
+            isAllRevealed = false;
+            updateRevealAllButton();
+
+            // 화면 전환 및 카드 렌더링
+            document.getElementById('inputSection').classList.add('hidden');
+            const resultSection = document.getElementById('resultSection');
+            resultSection.classList.remove('hidden');
+
+            renderStudentCards();
+
+            // 축하 꽃가루 효과
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 70,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // 3. 배정된 학생 카드 목록 렌더링
+        function renderStudentCards() {
+            const grid = document.getElementById('studentCardsGrid');
+            grid.innerHTML = '';
+
+            assignments.forEach((item, index) => {
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.onclick = () => handleStudentClick(index);
+                
+                // 이미 확인한 학생과 아직 확인하지 않은 학생의 스타일 구분
+                if (item.revealed) {
+                    card.className = 'group rounded-2xl p-4 shadow-md border-2 border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 transition transform hover:-translate-y-1 flex flex-col items-center justify-between text-center cursor-pointer min-h-[145px]';
+                    card.innerHTML = `
+                        <span class="text-xs font-bold text-amber-700 bg-white px-2.5 py-0.5 rounded-full shadow-xs mb-2">
+                            ${index + 1}번
+                        </span>
+                        <span class="font-jua text-xl sm:text-2xl text-slate-800 mb-2">
+                            ${escapeHtml(item.studentName)}
+                        </span>
+                        <div class="w-full py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-xs" style="background-color: ${item.book.bgColor}; color: ${item.book.textColor};">
+                            <span>${item.book.icon.split('')[0]}</span>
+                            <span class="truncate">${item.book.title}</span>
+                        </div>
+                    `;
+                } else {
+                    card.className = 'group rounded-2xl p-4 shadow-md border-2 border-emerald-200 bg-gradient-to-b from-white to-emerald-50/60 hover:border-emerald-400 hover:shadow-lg transition transform hover:-translate-y-1 flex flex-col items-center justify-between text-center cursor-pointer min-h-[145px]';
+                    card.innerHTML = `
+                        <span class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full mb-2">
+                            ${index + 1}번
+                        </span>
+                        <span class="font-jua text-xl sm:text-2xl text-slate-800 group-hover:text-emerald-700 transition mb-2">
+                            ${escapeHtml(item.studentName)}
+                        </span>
+                        <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-white px-3 py-1.5 rounded-xl border border-emerald-200 group-hover:bg-emerald-500 group-hover:text-white transition">
+                            🎁 책 열어보기
+                        </span>
+                    `;
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        // 4. 학생 이름(카드) 클릭 시 모달로 배정된 동화책 보여주기
+        function handleStudentClick(index) {
+            const item = assignments[index];
+            item.revealed = true; // 확인 완료 처리
+            renderStudentCards(); // 카드 상태 업데이트
+
+            // 모달 데이터 채우기
+            document.getElementById('modalStudentName').textContent = `${item.studentName} 어린이`;
+            
+            const bookCover = document.getElementById('modalBookCover');
+            bookCover.style.backgroundColor = item.book.bgColor;
+            bookCover.style.color = item.book.textColor;
+
+            document.getElementById('modalBookTitle').textContent = item.book.title;
+            document.getElementById('modalBookIcon').textContent = item.book.icon;
+            document.getElementById('modalBookDesc').textContent = item.book.desc;
+
+            // 모달 열기
+            const modal = document.getElementById('bookModal');
+            modal.classList.remove('hidden');
+        }
+
+        // 모든 책 한눈에 보기 / 가리기 토글
+        function revealAllBooks() {
+            isAllRevealed = !isAllRevealed;
+            assignments.forEach(item => {
+                item.revealed = isAllRevealed;
+            });
+            updateRevealAllButton();
+            renderStudentCards();
+        }
+
+        function updateRevealAllButton() {
+            const btn = document.getElementById('revealAllBtn');
+            if (isAllRevealed) {
+                btn.textContent = '🙈 책 제목 다시 가리기';
+                btn.classList.replace('bg-emerald-500', 'bg-slate-600');
+                btn.classList.replace('hover:bg-emerald-600', 'hover:bg-slate-700');
+            } else {
+                btn.textContent = '👀 모든 책 한눈에 보기';
+                btn.classList.replace('bg-slate-600', 'bg-emerald-500');
+                btn.classList.replace('hover:bg-slate-700', 'hover:bg-emerald-600');
+            }
+        }
+
+        // 이름 수정 화면으로 돌아가기
+        function resetToInput() {
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('inputSection').classList.remove('hidden');
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('bookModal').classList.add('hidden');
+        }
+
+        function closeModalOnBackdrop(event) {
+            if (event.target.id === 'bookModal') {
+                closeModal();
+            }
+        }
+
+        // XSS 방지를 위한 HTML 이스케이프
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
